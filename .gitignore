@@ -8,6 +8,7 @@ yarn-error.log
 out/
 dist/
 
+.history
 # IDE/Editor specific
 .vscode/
 .idea/
