@@ -16,8 +16,8 @@ import Markdown, { MarkdownToJSX } from 'markdown-to-jsx';
 import Copy from './MessageActions/Copy';
 import Rewrite from './MessageActions/Rewrite';
 import MessageSources from './MessageSources';
-import SearchImages from './SearchImages';
-import SearchVideos from './SearchVideos';
+/*import SearchImages from './SearchImages';*/
+/*import SearchVideos from './SearchVideos';*/
 import { useSpeech } from 'react-text-to-speech';
 import ThinkBox from './ThinkBox';
 
@@ -69,8 +69,7 @@ const MessageBox = ({
         processedMessage.replace(
           regex,
           (_, number) =>
-            `<a href="${
-              message.sources?.[number - 1]?.metadata?.url
+            `<a href="${message.sources?.[number - 1]?.metadata?.url
             }" target="_blank" className="bg-light-secondary dark:bg-dark-secondary px-1 rounded ml-1 no-underline text-xs text-black/70 dark:text-white/70 relative">${number}</a>`,
         ),
       );
@@ -218,16 +217,6 @@ const MessageBox = ({
             </div>
           </div>
           <div className="lg:sticky lg:top-20 flex flex-col items-center space-y-3 w-full lg:w-3/12 z-30 h-full pb-4">
-            <SearchImages
-              query={history[messageIndex - 1].content}
-              chatHistory={history.slice(0, messageIndex - 1)}
-              messageId={message.messageId}
-            />
-            <SearchVideos
-              chatHistory={history.slice(0, messageIndex - 1)}
-              query={history[messageIndex - 1].content}
-              messageId={message.messageId}
-            />
           </div>
         </div>
       )}
