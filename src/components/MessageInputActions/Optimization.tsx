@@ -1,4 +1,4 @@
-import { ChevronDown, Sliders, Star, Zap } from 'lucide-react';
+import { BookOpen, ChevronDown, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Popover,
@@ -8,38 +8,27 @@ import {
 } from '@headlessui/react';
 import { Fragment } from 'react';
 
-const OptimizationModes = [
+const ResponseModes = [
   {
-    key: 'speed',
-    title: 'Speed',
-    description: 'Prioritize speed and get the quickest possible answer.',
-    icon: <Zap size={20} className="text-[#FF9800]" />,
+    key: 'formal',
+    title: 'Formal',
+    description: 'Concise responses limited to 200 words',
+    icon: <MessageSquare size={20} className="text-[#4CAF50]" />,
   },
   {
-    key: 'balanced',
-    title: 'Balanced',
-    description: 'Find the right balance between speed and accuracy',
-    icon: <Sliders size={20} className="text-[#4CAF50]" />,
-  },
-  {
-    key: 'quality',
-    title: 'Quality (Soon)',
-    description: 'Get the most thorough and accurate answer',
-    icon: (
-      <Star
-        size={16}
-        className="text-[#2196F3] dark:text-[#BBDEFB] fill-[#BBDEFB] dark:fill-[#2196F3]"
-      />
-    ),
+    key: 'explanatory',
+    title: 'Explanatory',
+    description: 'Detailed responses between 700-1500 words',
+    icon: <BookOpen size={20} className="text-[#2196F3]" />,
   },
 ];
 
 const Optimization = ({
-  optimizationMode,
-  setOptimizationMode,
+  responseMode,
+  setResponseMode,
 }: {
-  optimizationMode: string;
-  setOptimizationMode: (mode: string) => void;
+  responseMode: string;
+  setResponseMode: (mode: string) => void;
 }) => {
   return (
     <Popover className="relative w-full max-w-[15rem] md:max-w-md lg:max-w-lg">
@@ -49,12 +38,12 @@ const Optimization = ({
       >
         <div className="flex flex-row items-center space-x-1">
           {
-            OptimizationModes.find((mode) => mode.key === optimizationMode)
+            ResponseModes.find((mode) => mode.key === responseMode)
               ?.icon
           }
           <p className="text-xs font-medium">
             {
-              OptimizationModes.find((mode) => mode.key === optimizationMode)
+              ResponseModes.find((mode) => mode.key === responseMode)
                 ?.title
             }
           </p>
@@ -72,17 +61,15 @@ const Optimization = ({
       >
         <PopoverPanel className="absolute z-10 w-64 md:w-[250px] right-0">
           <div className="flex flex-col gap-2 bg-light-primary dark:bg-dark-primary border rounded-lg border-light-200 dark:border-dark-200 w-full p-4 max-h-[200px] md:max-h-none overflow-y-auto">
-            {OptimizationModes.map((mode, i) => (
+            {ResponseModes.map((mode, i) => (
               <PopoverButton
-                onClick={() => setOptimizationMode(mode.key)}
+                onClick={() => setResponseMode(mode.key)}
                 key={i}
-                disabled={mode.key === 'quality'}
                 className={cn(
                   'p-2 rounded-lg flex flex-col items-start justify-start text-start space-y-1 duration-200 cursor-pointer transition',
-                  optimizationMode === mode.key
+                  responseMode === mode.key
                     ? 'bg-light-secondary dark:bg-dark-secondary'
                     : 'hover:bg-light-secondary dark:hover:bg-dark-secondary',
-                  mode.key === 'quality' && 'opacity-50 cursor-not-allowed',
                 )}
               >
                 <div className="flex flex-row items-center space-x-1 text-black dark:text-white">

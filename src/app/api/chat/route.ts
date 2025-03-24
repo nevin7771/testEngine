@@ -43,13 +43,103 @@ type EmbeddingModel = {
 
 type Body = {
   message: Message;
-  optimizationMode: 'speed' | 'balanced' | 'quality';
-  focusMode: string;
+  responseMode: 'formal' | 'explanatory';  // Changed from optimizationMode
+  focusModes: string[];  // Changed from focusMode string to array
   history: Array<[string, string]>;
   files: Array<string>;
   chatModel: ChatModel;
   embeddingModel: EmbeddingModel;
 };
+
+// Function to combine results from multiple agents
+async function combineAgentResults(
+  message: string,
+  history: BaseMessage[],
+  llm: BaseChatModel,
+  embedding: Embeddings,
+  responseMode: 'formal' | 'explanatory',
+  fileIds: string[],
+  agentKeys: string[]
+) {
+  // Create emitter for final result
+  const finalEmitter = new EventEmitter();
+  
+  // Map of results from each agent
+  const agentResults: Record<string, Document[]> = {};
+  
+  // Process each agent in parallel
+  await Promise.all(agentKeys.map(async (key) => {
+    const agent = searchHandlers[key];
+    if (!agent) return;
+    
+    try {
+      // Create a temporary emitter for this agent
+      const agentEmitter = await agent.searchAndAnswer(
+        message, history, llm, embedding, responseMode, fileIds
+      );
+      
+      // Collect all sources from this agent
+      const sources: Document[] = [];
+      
+      // Listen for sources
+      agentEmitter.on('data', (data) => {
+        const parsedData = JSON.parse(data);
+        if (parsedData.type === 'sources') {
+          sources.push(...parsedData.data);
+        }
+      });
+      
+      // Wait for this agent to finish
+      await new Promise<void>((resolve) => {
+        agentEmitter.on('end', () => {
+          agentResults[key] = sources;
+          resolve();
+        });
+      });
+    } catch (error) {
+      console.error(`Error with agent ${key}:`, error);
+    }
+  }));
+  
+  // Combine all sources across agents
+  const allSources = Object.values(agentResults).flat();
+  
+  // Deduplicate sources by URL
+  const uniqueSources = [...new Map(
+    allSources.map(source => [source.metadata.url, source])
+  ).values()];
+  
+  // Use first agent's format for the response
+  const primaryAgent = searchHandlers[agentKeys[0]];
+  const stream = await primaryAgent.searchAndAnswer(
+    message, history, llm, embedding, responseMode, fileIds
+  );
+  
+  // Forward events from the primary agent
+  stream.on('data', (data) => {
+    const parsedData = JSON.parse(data);
+    if (parsedData.type === 'sources') {
+      // Replace sources with our combined sources
+      finalEmitter.emit(
+        'data',
+        JSON.stringify({ type: 'sources', data: uniqueSources })
+      );
+    } else {
+      // Forward other events as-is
+      finalEmitter.emit('data', data);
+    }
+  });
+  
+  stream.on('end', () => {
+    finalEmitter.emit('end');
+  });
+  
+  stream.on('error', (error) => {
+    finalEmitter.emit('error', error);
+  });
+  
+  return finalEmitter;
+}
 
 const handleEmitterEvents = async (
   stream: EventEmitter,
@@ -130,7 +220,7 @@ const handleEmitterEvents = async (
 const handleHistorySave = async (
   message: Message,
   humanMessageId: string,
-  focusMode: string,
+  focusModes: string[],
   files: string[],
 ) => {
   const chat = await db.query.chats.findFirst({
@@ -139,15 +229,15 @@ const handleHistorySave = async (
 
   if (!chat) {
     await db
-      .insert(chats)
-      .values({
-        id: message.chatId,
-        title: message.content,
-        createdAt: new Date().toString(),
-        focusMode: focusMode,
-        files: files.map(getFileDetails),
-      })
-      .execute();
+    .insert(chats)
+    .values({
+    id: message.chatId,
+    title: message.content,
+    createdAt: new Date().toString(),
+    focusMode: JSON.stringify(focusModes), // This is correct - keep using "focusMode" singular
+    files: files.map(getFileDetails),
+  })
+  .execute();
   }
 
   const messageExists = await db.query.messages.findFirst({
@@ -260,32 +350,51 @@ export const POST = async (req: Request) => {
       }
     });
 
-    const handler = searchHandlers[body.focusMode];
+    // Ensure focusModes is an array and has at least one value
+    const focusModes = body.focusModes || ['generalAgent'];
 
-    if (!handler) {
-      return Response.json(
-        {
-          message: 'Invalid focus mode',
-        },
-        { status: 400 },
+    let stream: EventEmitter;
+
+    // If multiple agents selected, use combined approach
+    if (focusModes.length > 1) {
+      stream = await combineAgentResults(
+        message.content,
+        history,
+        llm,
+        embedding,
+        body.responseMode,
+        body.files,
+        focusModes
+      );
+    } else {
+      // Use single agent approach
+      const handler = searchHandlers[focusModes[0]];
+
+      if (!handler) {
+        return Response.json(
+          {
+            message: 'Invalid focus mode',
+          },
+          { status: 400 },
+        );
+      }
+
+      stream = await handler.searchAndAnswer(
+        message.content,
+        history,
+        llm,
+        embedding,
+        body.responseMode,  // Changed from optimizationMode
+        body.files,
       );
     }
-
-    const stream = await handler.searchAndAnswer(
-      message.content,
-      history,
-      llm,
-      embedding,
-      body.optimizationMode,
-      body.files,
-    );
 
     const responseStream = new TransformStream();
     const writer = responseStream.writable.getWriter();
     const encoder = new TextEncoder();
 
     handleEmitterEvents(stream, writer, encoder, aiMessageId, message.chatId);
-    handleHistorySave(message, humanMessageId, body.focusMode, body.files);
+    handleHistorySave(message, humanMessageId, focusModes, body.files);
 
     return new Response(responseStream.readable, {
       headers: {

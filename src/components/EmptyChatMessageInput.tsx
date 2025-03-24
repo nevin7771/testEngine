@@ -1,7 +1,6 @@
 import { ArrowRight } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
-import CopilotToggle from './MessageInputActions/Copilot';
 import Focus from './MessageInputActions/Focus';
 import Optimization from './MessageInputActions/Optimization';
 import Attach from './MessageInputActions/Attach';
@@ -9,28 +8,26 @@ import { File } from './ChatWindow';
 
 const EmptyChatMessageInput = ({
   sendMessage,
-  focusMode,
-  setFocusMode,
-  optimizationMode,
-  setOptimizationMode,
+  focusModes,
+  setFocusModes,
+  responseMode,
+  setResponseMode,
   fileIds,
   setFileIds,
   files,
   setFiles,
 }: {
   sendMessage: (message: string) => void;
-  focusMode: string;
-  setFocusMode: (mode: string) => void;
-  optimizationMode: string;
-  setOptimizationMode: (mode: string) => void;
+  focusModes: string[];
+  setFocusModes: (modes: string[]) => void;
+  responseMode: string;
+  setResponseMode: (mode: string) => void;
   fileIds: string[];
   setFileIds: (fileIds: string[]) => void;
   files: File[];
   setFiles: (files: File[]) => void;
 }) => {
-  const [copilotEnabled, setCopilotEnabled] = useState(false);
   const [message, setMessage] = useState('');
-
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -84,7 +81,7 @@ const EmptyChatMessageInput = ({
         />
         <div className="flex flex-row items-center justify-between mt-4">
           <div className="flex flex-row items-center space-x-2 lg:space-x-4">
-            <Focus focusMode={focusMode} setFocusMode={setFocusMode} />
+            <Focus focusModes={focusModes} setFocusModes={setFocusModes} />
             <Attach
               fileIds={fileIds}
               setFileIds={setFileIds}
@@ -95,8 +92,8 @@ const EmptyChatMessageInput = ({
           </div>
           <div className="flex flex-row items-center space-x-1 sm:space-x-4">
             <Optimization
-              optimizationMode={optimizationMode}
-              setOptimizationMode={setOptimizationMode}
+              responseMode={responseMode}
+              setResponseMode={setResponseMode}
             />
             <button
               disabled={message.trim().length === 0}

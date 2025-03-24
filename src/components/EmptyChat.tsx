@@ -6,20 +6,20 @@ import Link from 'next/link';
 
 const EmptyChat = ({
   sendMessage,
-  focusMode,
-  setFocusMode,
-  optimizationMode,
-  setOptimizationMode,
+  focusModes,
+  setFocusModes,
+  responseMode,
+  setResponseMode,
   fileIds,
   setFileIds,
   files,
   setFiles,
 }: {
   sendMessage: (message: string) => void;
-  focusMode: string;
-  setFocusMode: (mode: string) => void;
-  optimizationMode: string;
-  setOptimizationMode: (mode: string) => void;
+  focusModes: string[];
+  setFocusModes: (modes: string[]) => void;
+  responseMode: string;
+  setResponseMode: (mode: string) => void;
   fileIds: string[];
   setFileIds: (fileIds: string[]) => void;
   files: File[];
@@ -40,10 +40,10 @@ const EmptyChat = ({
         </h2>
         <EmptyChatMessageInput
           sendMessage={sendMessage}
-          focusMode={focusMode}
-          setFocusMode={setFocusMode}
-          optimizationMode={optimizationMode}
-          setOptimizationMode={setOptimizationMode}
+          focusModes={focusModes}
+          setFocusModes={setFocusModes}
+          responseMode={responseMode}
+          setResponseMode={setResponseMode}
           fileIds={fileIds}
           setFileIds={setFileIds}
           files={files}

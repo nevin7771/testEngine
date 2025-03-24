@@ -31,7 +31,7 @@ export interface MetaSearchAgentType {
     history: BaseMessage[],
     llm: BaseChatModel,
     embeddings: Embeddings,
-    optimizationMode: 'speed' | 'balanced' | 'quality',
+    responseMode: 'formal' | 'explanatory',
     fileIds: string[],
   ) => Promise<eventEmitter>;
 }
@@ -44,6 +44,9 @@ interface Config {
   queryGeneratorPrompt: string;
   responsePrompt: string;
   activeEngines: string[];
+  prioritySources?: string[]; // New property for priority domains
+  searchJira?: boolean; // New property for JIRA integration
+  logAnalysis?: boolean; // New property for log analysis
 }
 
 type BasicChainInput = {
@@ -209,14 +212,14 @@ class MetaSearchAgent implements MetaSearchAgentType {
             engines: this.config.activeEngines,
           });
 
-          const documents = res.results.map(
+          let documents = res.results.map(
             (result) =>
               new Document({
                 pageContent:
                   result.content ||
                   (this.config.activeEngines.includes('youtube')
                     ? result.title
-                    : '') /* Todo: Implement transcript grabbing using Youtubei (source: https://www.npmjs.com/package/youtubei) */,
+                    : ''),
                 metadata: {
                   title: result.title,
                   url: result.url,
@@ -224,6 +227,26 @@ class MetaSearchAgent implements MetaSearchAgentType {
                 },
               }),
           );
+
+          // Add priority source handling
+          if (this.config.prioritySources && this.config.prioritySources.length > 0) {
+            // First group: exact match with priority sources
+            const priorityDocs = documents.filter(doc => 
+              this.config.prioritySources?.some(source => 
+                doc.metadata.url.includes(source)
+              )
+            );
+            
+            // Second group: everything else
+            const otherDocs = documents.filter(doc => 
+              !this.config.prioritySources?.some(source => 
+                doc.metadata.url.includes(source)
+              )
+            );
+            
+            // Reorder documents based on priority
+            documents = [...priorityDocs, ...otherDocs];
+          }
 
           return { query: question, docs: documents };
         }
@@ -235,7 +258,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
     llm: BaseChatModel,
     fileIds: string[],
     embeddings: Embeddings,
-    optimizationMode: 'speed' | 'balanced' | 'quality',
+    responseMode: 'formal' | 'explanatory',
   ) {
     return RunnableSequence.from([
       RunnableMap.from({
@@ -268,7 +291,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
             docs ?? [],
             fileIds,
             embeddings,
-            optimizationMode,
+            responseMode,
           );
 
           return sortedDocs;
@@ -279,7 +302,10 @@ class MetaSearchAgent implements MetaSearchAgentType {
           .pipe(this.processDocs),
       }),
       ChatPromptTemplate.fromMessages([
-        ['system', this.config.responsePrompt],
+        ['system', `${this.config.responsePrompt}
+         ${responseMode === 'formal' 
+            ? 'Keep your response concise, limited to 200 words or less.' 
+            : 'Provide a detailed explanation between 700-1500 words.'}`],
         new MessagesPlaceholder('chat_history'),
         ['user', '{query}'],
       ]),
@@ -295,7 +321,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
     docs: Document[],
     fileIds: string[],
     embeddings: Embeddings,
-    optimizationMode: 'speed' | 'balanced' | 'quality',
+    responseMode: 'formal' | 'explanatory',
   ) {
     if (docs.length === 0 && fileIds.length === 0) {
       return docs;
@@ -333,7 +359,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
       (doc) => doc.pageContent && doc.pageContent.length > 0,
     );
 
-    if (optimizationMode === 'speed' || this.config.rerank === false) {
+    if (responseMode === 'formal' || this.config.rerank === false) {
       if (filesData.length > 0) {
         const [queryEmbedding] = await Promise.all([
           embeddings.embedQuery(query),
@@ -376,7 +402,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
       } else {
         return docsWithContent.slice(0, 15);
       }
-    } else if (optimizationMode === 'balanced') {
+    } else if (responseMode === 'explanatory') {
       const [docEmbeddings, queryEmbedding] = await Promise.all([
         embeddings.embedDocuments(
           docsWithContent.map((doc) => doc.pageContent),
@@ -466,7 +492,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
     history: BaseMessage[],
     llm: BaseChatModel,
     embeddings: Embeddings,
-    optimizationMode: 'speed' | 'balanced' | 'quality',
+    responseMode: 'formal' | 'explanatory',
     fileIds: string[],
   ) {
     const emitter = new eventEmitter();
@@ -475,7 +501,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
       llm,
       fileIds,
       embeddings,
-      optimizationMode,
+      responseMode,
     );
 
     const stream = answeringChain.streamEvents(
