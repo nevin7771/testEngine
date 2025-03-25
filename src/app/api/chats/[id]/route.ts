@@ -2,6 +2,7 @@ import db from '@/lib/db';
 import { chats, messages } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
+// src/app/api/chats/[id]/route.ts
 export const GET = async (
   req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -21,9 +22,24 @@ export const GET = async (
       where: eq(messages.chatId, id),
     });
 
+    // Add focusModes compatibility
+    const chatWithFocusModes = {
+      ...chatExists,
+      focusModes: (() => {
+        try {
+          // Try to parse the JSON string if it exists
+          const modes = chatExists.focusMode ? JSON.parse(chatExists.focusMode) : ['generalAgent'];
+          return Array.isArray(modes) ? modes : [chatExists.focusMode];
+        } catch {
+          // If parsing fails, assume it's an old format
+          return [chatExists.focusMode];
+        }
+      })()
+    };
+
     return Response.json(
       {
-        chat: chatExists,
+        chat: chatWithFocusModes,
         messages: chatMessages,
       },
       { status: 200 },

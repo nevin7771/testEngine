@@ -134,9 +134,9 @@ const checkConfig = async (
       ) {
         chatModel = Object.keys(
           chatModelProviders[
-            Object.keys(chatModelProviders[chatModelProvider]).length > 0
-              ? chatModelProvider
-              : Object.keys(chatModelProviders)[0]
+          Object.keys(chatModelProviders[chatModelProvider]).length > 0
+            ? chatModelProvider
+            : Object.keys(chatModelProviders)[0]
           ],
         )[0];
         localStorage.setItem('chatModel', chatModel);
@@ -184,7 +184,7 @@ const loadMessages = async (
   setMessages: (messages: Message[]) => void,
   setIsMessagesLoaded: (loaded: boolean) => void,
   setChatHistory: (history: [string, string][]) => void,
-  setFocusMode: (mode: string) => void,
+  setFocusModes: (modes: string[]) => void,
   setNotFound: (notFound: boolean) => void,
   setFiles: (files: File[]) => void,
   setFileIds: (fileIds: string[]) => void,
@@ -233,7 +233,19 @@ const loadMessages = async (
   setFileIds(files.map((file: File) => file.fileId));
 
   setChatHistory(history);
-  setFocusMode(data.chat.focusMode);
+
+  // Use the existing column name when loading data
+  if (data.chat.focusMode) {
+    try {
+      // Try to parse it as JSON first (for new format)
+      const modes = JSON.parse(data.chat.focusMode);
+      setFocusModes(Array.isArray(modes) ? modes : [data.chat.focusMode]);
+    } catch {
+      // If not valid JSON, treat as single string (old format)
+      setFocusModes([data.chat.focusMode]);
+    }
+  }
+
   setIsMessagesLoaded(true);
 };
 
@@ -280,8 +292,8 @@ const ChatWindow = ({ id }: { id?: string }) => {
   const [files, setFiles] = useState<File[]>([]);
   const [fileIds, setFileIds] = useState<string[]>([]);
 
-  const [focusMode, setFocusMode] = useState('webSearch');
-  const [optimizationMode, setOptimizationMode] = useState('speed');
+  const [focusModes, setFocusModes] = useState<string[]>(['generalAgent']);
+  const [responseMode, setResponseMode] = useState('formal');
 
   const [isMessagesLoaded, setIsMessagesLoaded] = useState(false);
 
@@ -299,7 +311,7 @@ const ChatWindow = ({ id }: { id?: string }) => {
         setMessages,
         setIsMessagesLoaded,
         setChatHistory,
-        setFocusMode,
+        setFocusModes,
         setNotFound,
         setFiles,
         setFileIds,
@@ -469,8 +481,8 @@ const ChatWindow = ({ id }: { id?: string }) => {
         },
         chatId: chatId!,
         files: fileIds,
-        focusMode: focusMode,
-        optimizationMode: optimizationMode,
+        focusModes: focusModes, // Changed from focusMode to focusModes (array)
+        responseMode: responseMode, // Changed from optimizationMode
         history: chatHistory,
         chatModel: {
           name: chatModelProvider.name,
@@ -574,10 +586,10 @@ const ChatWindow = ({ id }: { id?: string }) => {
         ) : (
           <EmptyChat
             sendMessage={sendMessage}
-            focusMode={focusMode}
-            setFocusMode={setFocusMode}
-            optimizationMode={optimizationMode}
-            setOptimizationMode={setOptimizationMode}
+            focusModes={focusModes}
+            setFocusModes={setFocusModes}
+            responseMode={responseMode}
+            setResponseMode={setResponseMode}
             fileIds={fileIds}
             setFileIds={setFileIds}
             files={files}

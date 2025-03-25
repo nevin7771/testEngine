@@ -17,12 +17,16 @@ interface File {
   fileId: string;
 }
 
+// Change the focusMode field to handle multiple values
 export const chats = sqliteTable('chats', {
+  // Existing fields
   id: text('id').primaryKey(),
   title: text('title').notNull(),
   createdAt: text('createdAt').notNull(),
-  focusMode: text('focusMode').notNull(),
-  files: text('files', { mode: 'json' })
-    .$type<File[]>()
-    .default(sql`'[]'`),
+  // Updated field - store as comma-separated string or JSON
+  focusMode: text('focusMode')
+    .notNull()
+    .default(sql`'["generalAgent"]'`),
+  // Renamed from focusMode to focusModes
+  files: text('files', { mode: 'json' }).$type<File[]>().default(sql`'[]'`),
 });
